@@ -38,13 +38,20 @@ func TestProcessTailerMultipleLinesFor(t *testing.T) {
 func TestProcessTailerMultipleLinesRange(t *testing.T) {
 	out := make(chan string)
 	errors := make(chan error)
+	go func() {
+		for l := range out {
+			if l != "test" {
+				t.Error("ProcessTailer failed")
+			}
+		}
+	}()
+
 	go ProcessTailer("echo -en \"test\ntest\ntest\"", out, errors)
 
-	for l := range out {
-		if l != "test" {
-			t.Error("ProcessTailer failed")
-		}
+	if err := <-errors; err != nil {
+		t.Error("ProcessTailer failed:", err)
 	}
+
 }
 
 func TestProcessTailerError(t *testing.T) {

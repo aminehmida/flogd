@@ -6,8 +6,11 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/aminehmida/flogd/matcher"
 	"github.com/aminehmida/flogd/tailer"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -17,48 +20,68 @@ var monitorCmd = &cobra.Command{
 	Short: "Start monitoring log stream(s) defined in the command line or in a config file",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("monitor called")
+		// logging.Info("monitor called")
+		log.Info().Msg("monitor called")
 		stype, _ := cmd.Flags().GetString("type")
 
 		regex, _ := cmd.Flags().GetString("regex")
 
 		command, err := cmd.Flags().GetString("do")
 		if err != nil {
-			fmt.Println("Can not get do argument:", err)
+			log.Error().Msg(fmt.Sprintf("Can not get do argument: %v", err))
 			return
 		}
 		if command == "" {
-			fmt.Println("do argument not defined. Will not execute any command on match")
+			log.Warn().Msg("\"do\" argument not defined. Will not execute any command on match")
 		}
 
 		count, _ := cmd.Flags().GetInt("count")
 		if err != nil {
-			fmt.Println("Can not get count argument:", err)
+			log.Error().Msg(fmt.Sprintf("Can not get count argument: %v", err))
 			return
 		}
 		interval, err := cmd.Flags().GetInt("interval")
 		if err != nil {
-			fmt.Println("Can not get interval argument:", err)
+			log.Error().Msg(fmt.Sprintf("Can not get interval argument: %v", err))
 			return
 		}
 		config, err := cmd.Flags().GetString("config")
 		if err != nil {
-			fmt.Println("Can not get config argument:", err)
+			log.Error().Msg(fmt.Sprintf("Can not get config argument: %v", err))
 			return
 		}
 		if config == "" {
 			if stype == "process" {
-				fmt.Println("monitor process")
-				tailerOutPipe := make(chan string)
+				tailerLineOutPipe := make(chan string)
 				tailerErrPipe := make(chan error)
-
-				matcherInPipe := make(chan string)
 				matcherOutPipe := make(chan string)
 
-				tailer.ProcessTailer(command, tailerOutPipe, tailerErrPipe)
+				go func() {
+					for err := range tailerErrPipe {
+						if err != nil {
+							log.Error().Msg(err.Error())
+						}
+						close(matcherOutPipe)
+					}
+				}()
 
+				go tailer.ProcessTailer(args[0], tailerLineOutPipe, tailerErrPipe)
+				go matcher.Monitor(regex, count, interval, tailerLineOutPipe, matcherOutPipe)
+
+				if strings.Contains(command, "%s") {
+					for match := range matcherOutPipe {
+						c := fmt.Sprintf(command, match)
+						log.Info().Msg(fmt.Sprintf(" ==> Executing: %s", c))
+					}
+				} else if command != "" {
+					for range matcherOutPipe {
+						log.Info().Msg(fmt.Sprintf(" ==> Executing: %s. ", command))
+					}
+				} else {
+					log.Info().Msg(" ==> No command to execute")
+				}
 			} else {
-				fmt.Println("Stream type not supported")
+				log.Error().Msg("Stream type not supported")
 			}
 		} else {
 			fmt.Println("Using config file:", config)

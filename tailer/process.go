@@ -2,6 +2,7 @@ package tailer
 
 import (
 	"bufio"
+	"fmt"
 	"os/exec"
 
 	shellwords "github.com/mattn/go-shellwords"
@@ -10,8 +11,9 @@ import (
 func ProcessTailer(command string, out chan<- string, errors chan<- error) {
 	args, err := shellwords.Parse(command)
 	if err != nil {
-		errors <- err
-		// close(out)
+		errors <- fmt.Errorf("error while parsing command \"%s\": %v", command, err)
+		close(errors)
+		close(out)
 	}
 
 	// fmt.Printf("args: %v\n", args)
@@ -27,14 +29,15 @@ func ProcessTailer(command string, out chan<- string, errors chan<- error) {
 			out <- line
 		}
 		done <- struct{}{}
-		close(out)
+		// close(out)
 	}()
 
 	// Start the command and check for errors
 	err = cmd.Start()
 	if err != nil {
 		close(out)
-		errors <- err
+		errors <- fmt.Errorf("error while starting command \"%s\": %v", command, err)
+		close(errors)
 		return
 	}
 
@@ -43,10 +46,12 @@ func ProcessTailer(command string, out chan<- string, errors chan<- error) {
 	err = cmd.Wait()
 	if err != nil {
 		close(out)
-		errors <- err
+		errors <- fmt.Errorf("error while running \"%s\": %v", command, err)
+		close(errors)
 		return
 	}
 
 	errors <- nil
-
+	close(out)
+	close(errors)
 }
