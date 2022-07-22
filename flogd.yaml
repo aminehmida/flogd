@@ -1,0 +1,16 @@
+- name: test
+  type: process
+  description: ""
+  regex: (\d\d)\.\d\d
+  do: sleep %s
+  count: 2
+  interval: 5
+  command: tail ./logs.txt
+- name: test 2
+  type: process
+  description: ""
+  regex: (\d\d)\.\d\d
+  do: echo "==> %s"
+  count: 2
+  interval: 5
+  command: tail ./logs.txt

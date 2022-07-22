@@ -1,14 +1,12 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"sync"
 
+	"github.com/aminehmida/flogd/config"
 	"github.com/aminehmida/flogd/exec"
 	"github.com/aminehmida/flogd/matcher"
 	"github.com/aminehmida/flogd/tailer"
@@ -27,12 +25,12 @@ var monitorCmd = &cobra.Command{
 
 		regex, _ := cmd.Flags().GetString("regex")
 
-		command, err := cmd.Flags().GetString("do")
+		do, err := cmd.Flags().GetString("do")
 		if err != nil {
 			log.Error().Msg(fmt.Sprintf("Can not get do argument: %v", err))
 			return
 		}
-		if command == "" {
+		if do == "" {
 			log.Warn().Msg("\"do\" argument not defined. Will not execute any command on match")
 		}
 
@@ -46,93 +44,117 @@ var monitorCmd = &cobra.Command{
 			log.Error().Msg(fmt.Sprintf("Can not get interval argument: %v", err))
 			return
 		}
-		config, err := cmd.Flags().GetString("config")
+		configFile, err := cmd.Flags().GetString("config")
 		if err != nil {
 			log.Error().Msg(fmt.Sprintf("Can not get config argument: %v", err))
 			return
 		}
-		if config == "" {
+		if configFile == "" {
 			if stype == "process" {
-				tailerLineOutPipe := make(chan string)
-				tailerErrPipe := make(chan error)
-				matcherOutPipe := make(chan string)
-
-				var wg sync.WaitGroup
-
-				go func() {
-					for err := range tailerErrPipe {
-						if err != nil {
-							log.Error().Msg(err.Error())
-						} else {
-							log.Info().Msg("Tailer finished")
-						}
-						wg.Wait()
-						close(matcherOutPipe)
-						log.Debug().Msg("Closed matcherOutPipe")
-					}
-				}()
-
-				go tailer.ProcessTailer(args[0], tailerLineOutPipe, tailerErrPipe)
-				go matcher.Monitor(regex, count, interval, wg, tailerLineOutPipe, matcherOutPipe)
-
-				if strings.Contains(command, "%s") {
-					for match := range matcherOutPipe {
-						wg.Add(1)
-						go func(m string) {
-							defer wg.Done()
-							c := fmt.Sprintf(command, m)
-							log.Info().Msg(fmt.Sprintf(" ==> Executing: %s", c))
-							stdout, stderr, retCode, err := exec.Execute(c)
-							if err != nil {
-								log.Error().Msg(fmt.Sprintf("Error executing command: %v", err))
-							} else {
-								multulineInfoPrefixPrint(c+"; stdout", stdout)
-								multulineInfoPrefixPrint(c+"; stderr", stderr)
-								log.Info().Msg(fmt.Sprintf("Command returned: %d", retCode))
-							}
-							log.Debug().Msg("Execution finish for: " + c)
-
-						}(match)
-					}
-				} else if command != "" {
-					for range matcherOutPipe {
-						wg.Add(1)
-						go func() {
-							defer wg.Done()
-							log.Info().Msg(fmt.Sprintf(" ==> Executing: %s. ", command))
-							stdout, stderr, retCode, err := exec.Execute(command)
-							if err != nil {
-								log.Error().Msg(fmt.Sprintf("Error executing command: %v", err))
-							} else {
-								multulineInfoPrefixPrint(command+"; stdout", stdout)
-								multulineInfoPrefixPrint(command+"; stderr", stderr)
-								log.Info().Msg(fmt.Sprintf("Command returned: %d", retCode))
-							}
-							log.Debug().Msg("Execution finish for: " + command)
-						}()
-					}
-				} else {
-					for match := range matcherOutPipe {
-						wg.Add(1)
-						// log.Info().Msg(fmt.Sprintf(" ==> Match: %s", match))
-						go func(m string) {
-							defer wg.Done()
-							log.Info().Msg("Match found: " + m)
-						}(match)
-					}
-				}
+				monitorCommand(args[0], do, regex, count, interval, nil)
 			} else {
 				log.Error().Msg("Stream type not supported")
 			}
 		} else {
-			fmt.Println("Using config file:", config)
+			log.Debug().Msg("Using config file: " + configFile)
+			var configs config.Configs
+			// read config file as []byte
+			configBytes, err := ioutil.ReadFile(configFile)
+			if err != nil {
+				log.Error().Msg(fmt.Sprintf("Can not read config file: %v", err))
+				return
+			}
+			err = configs.Decode(configBytes)
+			if err != nil {
+				log.Error().Msg(fmt.Sprintf("Error loading config file: %v", err))
+				return
+			}
+			var wg sync.WaitGroup
+			for _, stream := range configs {
+				if stream.SType == "process" {
+					log.Info().Msg("Monitoring process: " + stream.Name)
+					wg.Add(1)
+					go monitorCommand(stream.Command, stream.Do, stream.Regex, stream.Count, stream.Interval, &wg)
+				}
+			}
+			wg.Wait()
 		}
 	},
 }
 
-func monitorCommand(command, do, regexp string, count, interval int) {
-	
-})
+func monitorCommand(command, do, regex string, count, interval int, mainWg *sync.WaitGroup) {
+	tailerLineOutPipe := make(chan string)
+	tailerErrPipe := make(chan error)
+	matcherOutPipe := make(chan string)
+
+	var wg sync.WaitGroup
+
+	go func() {
+		for err := range tailerErrPipe {
+			if err != nil {
+				log.Error().Msg(err.Error())
+			} else {
+				log.Info().Msg("Tailer finished")
+			}
+			wg.Wait()
+			close(matcherOutPipe)
+			log.Debug().Msg("Closed matcherOutPipe")
+		}
+	}()
+
+	go tailer.ProcessTailer(command, tailerLineOutPipe, tailerErrPipe)
+	go matcher.Monitor(regex, count, interval, wg, tailerLineOutPipe, matcherOutPipe)
+
+	if strings.Contains(do, "%s") {
+		for match := range matcherOutPipe {
+			wg.Add(1)
+			go func(m string) {
+				defer wg.Done()
+				c := fmt.Sprintf(do, m)
+				log.Info().Msg(fmt.Sprintf(" ==> Executing: %s", c))
+				stdout, stderr, retCode, err := exec.Execute(c)
+				if err != nil {
+					log.Error().Msg(fmt.Sprintf("Error executing command: %v", err))
+				} else {
+					multulineInfoPrefixPrint(c+"; stdout", stdout)
+					multulineInfoPrefixPrint(c+"; stderr", stderr)
+					log.Info().Msg(fmt.Sprintf("Command returned: %d", retCode))
+				}
+				log.Debug().Msg("Execution finish for: " + c)
+
+			}(match)
+		}
+	} else if command != "" {
+		for range matcherOutPipe {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				log.Info().Msg(fmt.Sprintf(" ==> Executing: %s. ", command))
+				stdout, stderr, retCode, err := exec.Execute(command)
+				if err != nil {
+					log.Error().Msg(fmt.Sprintf("Error executing command: %v", err))
+				} else {
+					multulineInfoPrefixPrint(command+"; stdout", stdout)
+					multulineInfoPrefixPrint(command+"; stderr", stderr)
+					log.Info().Msg(fmt.Sprintf("Command returned: %d", retCode))
+				}
+				log.Debug().Msg("Execution finish for: " + command)
+			}()
+		}
+	} else {
+		for match := range matcherOutPipe {
+			wg.Add(1)
+			// log.Info().Msg(fmt.Sprintf(" ==> Match: %s", match))
+			go func(m string) {
+				defer wg.Done()
+				log.Info().Msg("Match found: " + m)
+			}(match)
+		}
+	}
+	if mainWg != nil {
+		mainWg.Done()
+	}
+}
 
 func multulineInfoPrefixPrint(prefix, s string) {
 	for _, line := range strings.Split(s, "\n") {
@@ -142,14 +164,4 @@ func multulineInfoPrefixPrint(prefix, s string) {
 
 func init() {
 	rootCmd.AddCommand(monitorCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// monitorCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// monitorCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
