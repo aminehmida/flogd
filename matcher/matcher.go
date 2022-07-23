@@ -1,11 +1,13 @@
 package matcher
 
 import (
+	"fmt"
 	"regexp"
 	"sync"
 
-	// "github.com/google/go-dap"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type matchTracker struct {
@@ -20,14 +22,16 @@ func Monitor(regex string, count int, interval_s int, lineInput <-chan string, m
 
 	// range read lins from lineInput
 	for line := range lineInput {
+		log.Debug().Msgf("match map size: %d", len(matches))
+		log.Debug().Msg("Line received: " + line)
 		if wg != nil {
 			wg.Add(1)
 		}
-		// fmt.Println("line:", line)
+
 		// Delete matches that timed out
 		for k := range matches {
 			if time.Since(matches[k].oldest) > time.Duration(interval_s)*time.Second {
-				// fmt.Println("deleting", k)
+				log.Debug().Msgf("Deleting match because timeout: %s - %s, %v > %v.", k, matches[k].oldest, time.Since(matches[k].oldest), time.Duration(interval_s)*time.Second)
 				delete(matches, k)
 			}
 		}
@@ -36,26 +40,36 @@ func Monitor(regex string, count int, interval_s int, lineInput <-chan string, m
 		results := re.FindStringSubmatch(line)
 
 		if len(results) > 1 {
+			log.Debug().Msg("Matched with capture group")
 			if count == 1 {
 				matchOutput <- results[1]
 			} else if item, ok := matches[results[1]]; ok {
 				if item.count < count-1 {
 					matches[results[1]] = matchTracker{
-						count: item.count + 1,
+						count:  item.count + 1,
+						oldest: matches[results[1]].oldest,
 					}
+					log.Debug().Msg(fmt.Sprintf("Matched group: %s, count incremented: %d", results[1], item.count+1))
 				} else {
+					log.Debug().Msg("Matched with capture group and count reached!")
 					matchOutput <- results[1]
 					delete(matches, results[1])
 				}
 			} else {
+				log.Debug().Msg("Matched with capture group added to matches map")
 				matches[results[1]] = matchTracker{1, time.Now()}
+				log.Debug().Msgf("Time now: %v", matches[results[1]].oldest)
 			}
 		} else if len(results) == 1 {
+			log.Debug().Msg("Matched with no capture group")
 			if count == 1 {
+				log.Debug().Msg("Matched with no capture group and count 1 reached")
 				matchOutput <- results[0]
 			} else if matchCount < count-1 {
+				log.Debug().Msg("Matched with no capture group and count not reached")
 				matchCount++
 			} else {
+				log.Debug().Msg("Matched with no capture group and count reached")
 				matchOutput <- results[0]
 				matchCount = 0
 			}
