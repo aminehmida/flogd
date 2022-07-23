@@ -15,7 +15,7 @@ var saveCmd = &cobra.Command{
 	Short: "A brief description of your command",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Debug().Msg("monitor called")
+		log.Debug().Msg("Save invoked")
 		name, _ := cmd.Flags().GetString("name")
 		desc, _ := cmd.Flags().GetString("desc")
 		stype, _ := cmd.Flags().GetString("type")
@@ -74,6 +74,7 @@ var saveCmd = &cobra.Command{
 		}
 		// Write config file
 		os.WriteFile(configFileName, configBytes, 0644)
+		log.Info().Msg(fmt.Sprintf("Config: %s, saved to file: %s", name, configFileName))
 
 	},
 }

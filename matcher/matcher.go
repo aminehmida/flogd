@@ -13,14 +13,16 @@ type matchTracker struct {
 	oldest time.Time
 }
 
-func Monitor(regex string, count int, interval_s int, wg sync.WaitGroup, lineInput <-chan string, matchOutput chan<- string) {
+func Monitor(regex string, count int, interval_s int, lineInput <-chan string, matchOutput chan<- string, wg *sync.WaitGroup) {
 	// store number of matches for each unique_name
 	matches := make(map[string]matchTracker)
 	matchCount := 0
 
 	// range read lins from lineInput
 	for line := range lineInput {
-		wg.Add(1)
+		if wg != nil {
+			wg.Add(1)
+		}
 		// fmt.Println("line:", line)
 		// Delete matches that timed out
 		for k := range matches {
@@ -34,7 +36,9 @@ func Monitor(regex string, count int, interval_s int, wg sync.WaitGroup, lineInp
 		results := re.FindStringSubmatch(line)
 
 		if len(results) > 1 {
-			if item, ok := matches[results[1]]; ok {
+			if count == 1 {
+				matchOutput <- results[1]
+			} else if item, ok := matches[results[1]]; ok {
 				if item.count < count-1 {
 					matches[results[1]] = matchTracker{
 						count: item.count + 1,
@@ -47,13 +51,17 @@ func Monitor(regex string, count int, interval_s int, wg sync.WaitGroup, lineInp
 				matches[results[1]] = matchTracker{1, time.Now()}
 			}
 		} else if len(results) == 1 {
-			if matchCount < count-1 {
+			if count == 1 {
+				matchOutput <- results[0]
+			} else if matchCount < count-1 {
 				matchCount++
 			} else {
 				matchOutput <- results[0]
 				matchCount = 0
 			}
 		}
-		wg.Done()
+		if wg != nil {
+			wg.Done()
+		}
 	}
 }

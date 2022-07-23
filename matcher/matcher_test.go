@@ -10,7 +10,21 @@ func TestMatcherSingle(t *testing.T) {
 	input := make(chan string)
 	result := make(chan string)
 
-	go Monitor("^(hello) world$", 2, 5, input, result)
+	go Monitor(`Accepted publickey for root from ((?:[0-9]{1,3}\.){3}[0-9]{1,3})`, 1, 1, input, result, nil)
+	input <- "Jul 22 15:36:11 debian-1 sshd[1871963]: Accepted publickey for root from 51.148.183.198 port 51558 ssh2: RSA SHA256:Nh9OTrMgt7pLwn80MMBuuPZEPdN8Ie3JHoo/zZ9kSeo"
+	// input <- "Jul 22 15:36:11 debian-1 sshd[1871963]: Accepted publickey for root from 51.148.183.198 port 51558 ssh2: RSA SHA256:Nh9OTrMgt7pLwn80MMBuuPZEPdN8Ie3JHoo/zZ9kSeo"
+
+	if r := <-result; r != "51.148.183.198" {
+		t.Error("Matcher failed. Got: ", r)
+	}
+
+}
+
+func TestMatcherSingle2(t *testing.T) {
+	input := make(chan string)
+	result := make(chan string)
+
+	go Monitor("^(hello) world$", 2, 5, input, result, nil)
 	input <- "hello world"
 	time.Sleep(1 * time.Second)
 	input <- "hello world"
@@ -39,7 +53,7 @@ func TestMatcherMultiple(t *testing.T) {
 		}
 	}()
 
-	go Monitor(`^(\d\d) world$`, 2, 10, input, result)
+	go Monitor(`^(\d\d) world$`, 2, 10, input, result, &wg)
 	input <- "01 world"
 	input <- "02 world"
 	input <- "01 world"
@@ -70,7 +84,7 @@ func TestMatcherNoGroup(t *testing.T) {
 		}
 	}()
 
-	go Monitor(`^\d\d world$`, 2, 10, input, result)
+	go Monitor(`^\d\d world$`, 2, 10, input, result, nil)
 	input <- "01 world"
 	input <- "02 world"
 	input <- "03 world"

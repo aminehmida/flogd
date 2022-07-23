@@ -30,9 +30,6 @@ var monitorCmd = &cobra.Command{
 			log.Error().Msg(fmt.Sprintf("Can not get do argument: %v", err))
 			return
 		}
-		if do == "" {
-			log.Warn().Msg("\"do\" argument not defined. Will not execute any command on match")
-		}
 
 		count, _ := cmd.Flags().GetInt("count")
 		if err != nil {
@@ -83,6 +80,9 @@ var monitorCmd = &cobra.Command{
 }
 
 func monitorCommand(command, do, regex string, count, interval int, mainWg *sync.WaitGroup) {
+	if do == "" {
+		log.Warn().Msg("\"do\" argument not defined. Will not execute any command on match")
+	}
 	tailerLineOutPipe := make(chan string)
 	tailerErrPipe := make(chan error)
 	matcherOutPipe := make(chan string)
@@ -103,7 +103,7 @@ func monitorCommand(command, do, regex string, count, interval int, mainWg *sync
 	}()
 
 	go tailer.ProcessTailer(command, tailerLineOutPipe, tailerErrPipe)
-	go matcher.Monitor(regex, count, interval, wg, tailerLineOutPipe, matcherOutPipe)
+	go matcher.Monitor(regex, count, interval, tailerLineOutPipe, matcherOutPipe, &wg)
 
 	if strings.Contains(do, "%s") {
 		for match := range matcherOutPipe {
@@ -124,21 +124,21 @@ func monitorCommand(command, do, regex string, count, interval int, mainWg *sync
 
 			}(match)
 		}
-	} else if command != "" {
+	} else if do != "" {
 		for range matcherOutPipe {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				log.Info().Msg(fmt.Sprintf(" ==> Executing: %s. ", command))
-				stdout, stderr, retCode, err := exec.Execute(command)
+				log.Info().Msg(fmt.Sprintf(" ==> Executing: %s. ", do))
+				stdout, stderr, retCode, err := exec.Execute(do)
 				if err != nil {
 					log.Error().Msg(fmt.Sprintf("Error executing command: %v", err))
 				} else {
-					multulineInfoPrefixPrint(command+"; stdout", stdout)
-					multulineInfoPrefixPrint(command+"; stderr", stderr)
+					multulineInfoPrefixPrint(do+"; stdout", stdout)
+					multulineInfoPrefixPrint(do+"; stderr", stderr)
 					log.Info().Msg(fmt.Sprintf("Command returned: %d", retCode))
 				}
-				log.Debug().Msg("Execution finish for: " + command)
+				log.Debug().Msg("Execution finish for: " + do)
 			}()
 		}
 	} else {
