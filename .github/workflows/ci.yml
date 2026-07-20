@@ -45,12 +45,12 @@ jobs:
         run: go build -ldflags="-s -w" -o "flogd-${{ matrix.goos }}-${{ matrix.goarch }}" .
       - name: Validate deb/rpm packaging
         if: matrix.goos == 'linux'
-        env:
-          GOARCH: ${{ matrix.goarch }}
-          VERSION: "0.0.0"
         run: |
+          # Install nfpm for the host arch first (before exporting GOARCH,
+          # which would otherwise cross-compile the tool for the target).
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
           export PATH="$(go env GOPATH)/bin:$PATH"
+          export GOARCH="${{ matrix.goarch }}" VERSION="0.0.0"
           envsubst '${GOARCH} ${VERSION}' < nfpm.yaml > /tmp/nfpm.yaml
           nfpm package --config /tmp/nfpm.yaml --packager deb --target /tmp/flogd.deb
           nfpm package --config /tmp/nfpm.yaml --packager rpm --target /tmp/flogd.rpm
