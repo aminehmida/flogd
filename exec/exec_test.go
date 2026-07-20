@@ -15,7 +15,7 @@ func TestExecuteSuccess(t *testing.T) {
 }
 
 func TestExecuteComposedOutput(t *testing.T) {
-	stdout, stderr, retCode, err := Execute("echo -n hello; echo -n world")
+	stdout, stderr, retCode, err := Execute("printf hello; printf world")
 	if err != nil || stderr != "" || retCode != 0 {
 		t.Error("Execute failed. Error:", err, "Return code:", retCode, "Stderr:", stderr)
 	}
@@ -25,7 +25,7 @@ func TestExecuteComposedOutput(t *testing.T) {
 }
 
 func TestExecuteStderr(t *testing.T) {
-	stdout, stderr, retCode, err := Execute("echo -n hello >&2")
+	stdout, stderr, retCode, err := Execute("printf hello >&2")
 	if err != nil || stdout != "" || retCode != 0 {
 		t.Error("Execute failed. Error:", err, "Return code:", retCode, "Stdout:", stdout)
 	}

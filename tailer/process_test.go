@@ -22,7 +22,7 @@ func TestProcessTailerMultipleLinesFor(t *testing.T) {
 	errors := make(chan error)
 	expected := []string{"hello", "world"}
 
-	go ProcessTailer("echo -en \"hello\nworld\"", out, errors)
+	go ProcessTailer("printf 'hello\nworld'", out, errors)
 
 	for i := 0; i < len(expected); i++ {
 		if <-out != expected[i] {
@@ -46,7 +46,7 @@ func TestProcessTailerMultipleLinesRange(t *testing.T) {
 		}
 	}()
 
-	go ProcessTailer("echo -en \"test\ntest\ntest\"", out, errors)
+	go ProcessTailer("printf 'test\ntest\ntest'", out, errors)
 
 	if err := <-errors; err != nil {
 		t.Error("ProcessTailer failed:", err)
