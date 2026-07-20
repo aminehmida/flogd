@@ -1,8 +1,0 @@
-- name: test
-  type: process
-  description: test
-  regex: test
-  do: test
-  count: 1
-  interval: 1
-  execute: test

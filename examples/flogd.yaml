@@ -5,7 +5,7 @@
   do: sleep %s
   count: 2
   interval: 5
-  command: tail ./logs.txt
+  command: tail ./examples/logs.txt
 - name: test 2
   type: process
   description: ""
@@ -13,4 +13,4 @@
   do: echo "==> %s"
   count: 2
   interval: 5
-  command: tail ./logs.txt
+  command: tail ./examples/logs.txt
