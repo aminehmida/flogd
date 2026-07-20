@@ -24,7 +24,7 @@ func TestEncodeConfig(t *testing.T) {
   do: test
   count: 1
   interval: 1
-  execute: test
+  command: test
 `
 
 	config := Configs{c}
@@ -57,7 +57,7 @@ func TestDecodeConfig(t *testing.T) {
   do: test
   count: 1
   interval: 1
-  execute: test
+  command: test
 `
 
 	config := Configs{c}
@@ -85,8 +85,8 @@ func TestEncodeInvalidConfig(t *testing.T) {
 
 	config := Configs{c}
 	_, err := config.Encode()
-	if err == nil || err.Error() != "Config execute not defined" {
-		t.Errorf("Expected error: Config execute not defined, got: %v", err)
+	if err == nil || err.Error() != "config type set to \"process\" but \"command\" not defined" {
+		t.Errorf("Expected error: config type set to \"process\" but \"command\" not defined, got: %v", err)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestDecodeInvalidConfig(t *testing.T) {
 `
 	result := Configs{}
 	err := result.Decode([]byte(r))
-	if err == nil || err.Error() != "Config execute not defined" {
-		t.Errorf("Expected error: Config execute not defined, got: %v", err)
+	if err == nil || err.Error() != "config type set to \"process\" but \"command\" not defined" {
+		t.Errorf("Expected error: config type set to \"process\" but \"command\" not defined, got: %v", err)
 	}
 }
