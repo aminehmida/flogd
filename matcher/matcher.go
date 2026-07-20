@@ -20,7 +20,10 @@ func Monitor(regex string, count int, interval_s int, lineInput <-chan string, m
 	matches := make(map[string]matchTracker)
 	matchCount := 0
 
-	// range read lins from lineInput
+	// compile the regex once, up front, rather than on every line
+	re := regexp.MustCompile(regex)
+
+	// range read lines from lineInput
 	for line := range lineInput {
 		log.Debug().Msgf("match map size: %d", len(matches))
 		log.Debug().Msg("Line received: " + line)
@@ -36,7 +39,6 @@ func Monitor(regex string, count int, interval_s int, lineInput <-chan string, m
 			}
 		}
 		// match line against regex
-		var re = regexp.MustCompile(regex)
 		results := re.FindStringSubmatch(line)
 
 		if len(results) > 1 {
