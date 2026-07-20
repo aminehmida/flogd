@@ -11,25 +11,34 @@ import (
 func ProcessTailer(command string, out chan<- string, errors chan<- error) {
 	args, err := shellwords.Parse(command)
 	if err != nil {
+		close(out)
 		errors <- fmt.Errorf("error while parsing command \"%s\": %v", command, err)
 		close(errors)
+		return
+	}
+	if len(args) == 0 {
 		close(out)
+		errors <- fmt.Errorf("empty command")
+		close(errors)
+		return
 	}
 
-	// fmt.Printf("args: %v\n", args)
-
 	cmd := exec.Command(args[0], args[1:]...)
-	r, _ := cmd.StdoutPipe()
+	r, err := cmd.StdoutPipe()
+	if err != nil {
+		close(out)
+		errors <- fmt.Errorf("error while creating stdout pipe for \"%s\": %v", command, err)
+		close(errors)
+		return
+	}
 	cmd.Stderr = cmd.Stdout
 	done := make(chan struct{})
 	scanner := bufio.NewScanner(r)
 	go func() {
 		for scanner.Scan() {
-			line := scanner.Text()
-			out <- line
+			out <- scanner.Text()
 		}
 		done <- struct{}{}
-		// close(out)
 	}()
 
 	// Start the command and check for errors

@@ -11,9 +11,9 @@ import (
 
 // saveCmd represents the save command
 var saveCmd = &cobra.Command{
-	Use:   "save",
-	Short: "A brief description of your command",
-	Long:  "",
+	Use:   "save [command]",
+	Short: "Save a monitoring configuration to a config file",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Debug().Msg("Save invoked")
 		name, _ := cmd.Flags().GetString("name")
@@ -49,7 +49,11 @@ var saveCmd = &cobra.Command{
 				log.Error().Msg(fmt.Sprintf("Can not encode config: %v", err))
 				return
 			}
-			os.WriteFile(configFileName, configBytes, 0644)
+			if err := os.WriteFile(configFileName, configBytes, 0644); err != nil {
+				log.Error().Msg(fmt.Sprintf("Can not write config file: %v", err))
+				return
+			}
+			log.Info().Msg(fmt.Sprintf("Config: %s, saved to file: %s", name, configFileName))
 			return
 		}
 		// Read config file
@@ -73,23 +77,16 @@ var saveCmd = &cobra.Command{
 			return
 		}
 		// Write config file
-		os.WriteFile(configFileName, configBytes, 0644)
+		if err := os.WriteFile(configFileName, configBytes, 0644); err != nil {
+			log.Error().Msg(fmt.Sprintf("Can not write config file: %v", err))
+			return
+		}
 		log.Info().Msg(fmt.Sprintf("Config: %s, saved to file: %s", name, configFileName))
-
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(saveCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// saveCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	saveCmd.Flags().StringP("name", "m", "", "Config name")
 	saveCmd.Flags().StringP("desc", "s", "", "Config description")
 }

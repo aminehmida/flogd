@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 
@@ -22,41 +22,27 @@ var monitorCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Debug().Msg("monitor called")
 		stype, _ := cmd.Flags().GetString("type")
-
 		regex, _ := cmd.Flags().GetString("regex")
-
-		do, err := cmd.Flags().GetString("do")
-		if err != nil {
-			log.Error().Msg(fmt.Sprintf("Can not get do argument: %v", err))
-			return
-		}
-
+		do, _ := cmd.Flags().GetString("do")
 		count, _ := cmd.Flags().GetInt("count")
-		if err != nil {
-			log.Error().Msg(fmt.Sprintf("Can not get count argument: %v", err))
-			return
-		}
-		interval, err := cmd.Flags().GetInt("interval")
-		if err != nil {
-			log.Error().Msg(fmt.Sprintf("Can not get interval argument: %v", err))
-			return
-		}
-		configFile, err := cmd.Flags().GetString("config")
-		if err != nil {
-			log.Error().Msg(fmt.Sprintf("Can not get config argument: %v", err))
-			return
-		}
+		interval, _ := cmd.Flags().GetInt("interval")
+		configFile, _ := cmd.Flags().GetString("config")
+
 		if configFile == "" {
-			if stype == "process" {
-				monitorCommand(args[0], do, regex, count, interval, nil)
-			} else {
+			if stype != "process" {
 				log.Error().Msg("Stream type not supported")
+				return
 			}
+			if len(args) == 0 {
+				log.Error().Msg("A command to monitor is required when no config file is provided")
+				return
+			}
+			monitorCommand(args[0], do, regex, count, interval, nil)
 		} else {
 			log.Debug().Msg("Using config file: " + configFile)
 			var configs config.Configs
 			// read config file as []byte
-			configBytes, err := ioutil.ReadFile(configFile)
+			configBytes, err := os.ReadFile(configFile)
 			if err != nil {
 				log.Error().Msg(fmt.Sprintf("Can not read config file: %v", err))
 				return
@@ -116,8 +102,8 @@ func monitorCommand(command, do, regex string, count, interval int, mainWg *sync
 				if err != nil {
 					log.Error().Msg(fmt.Sprintf("Error executing command: %v", err))
 				} else {
-					multulineInfoPrefixPrint(c+"; stdout", stdout)
-					multulineInfoPrefixPrint(c+"; stderr", stderr)
+					multilineInfoPrefixPrint(c+"; stdout", stdout)
+					multilineInfoPrefixPrint(c+"; stderr", stderr)
 					log.Info().Msg(fmt.Sprintf("Command returned: %d", retCode))
 				}
 				log.Debug().Msg("Execution finish for: " + c)
@@ -134,8 +120,8 @@ func monitorCommand(command, do, regex string, count, interval int, mainWg *sync
 				if err != nil {
 					log.Error().Msg(fmt.Sprintf("Error executing command: %v", err))
 				} else {
-					multulineInfoPrefixPrint(do+"; stdout", stdout)
-					multulineInfoPrefixPrint(do+"; stderr", stderr)
+					multilineInfoPrefixPrint(do+"; stdout", stdout)
+					multilineInfoPrefixPrint(do+"; stderr", stderr)
 					log.Info().Msg(fmt.Sprintf("Command returned: %d", retCode))
 				}
 				log.Debug().Msg("Execution finish for: " + do)
@@ -144,7 +130,6 @@ func monitorCommand(command, do, regex string, count, interval int, mainWg *sync
 	} else {
 		for match := range matcherOutPipe {
 			wg.Add(1)
-			// log.Info().Msg(fmt.Sprintf(" ==> Match: %s", match))
 			go func(m string) {
 				defer wg.Done()
 				log.Info().Msg("Match found: " + m)
@@ -156,7 +141,7 @@ func monitorCommand(command, do, regex string, count, interval int, mainWg *sync
 	}
 }
 
-func multulineInfoPrefixPrint(prefix, s string) {
+func multilineInfoPrefixPrint(prefix, s string) {
 	for _, line := range strings.Split(s, "\n") {
 		log.Info().Msg(fmt.Sprintf("%s: %s", prefix, line))
 	}
