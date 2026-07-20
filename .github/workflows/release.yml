@@ -31,7 +31,21 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: go build -ldflags="-s -w" -o "flogd-${{ matrix.goos }}-${{ matrix.goarch }}" .
-      - name: Attach binary to release
+      - name: Build deb and rpm packages
+        if: matrix.goos == 'linux'
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          export VERSION="${GITHUB_REF_NAME#v}"
+          envsubst '${GOARCH} ${VERSION}' < nfpm.yaml > /tmp/nfpm.yaml
+          nfpm package --config /tmp/nfpm.yaml --packager deb --target "flogd_${VERSION}_${GOARCH}.deb"
+          nfpm package --config /tmp/nfpm.yaml --packager rpm --target "flogd_${VERSION}_${GOARCH}.rpm"
+      - name: Attach artifacts to release
         uses: softprops/action-gh-release@v2
         with:
-          files: flogd-${{ matrix.goos }}-${{ matrix.goarch }}
+          files: |
+            flogd-${{ matrix.goos }}-${{ matrix.goarch }}
+            *.deb
+            *.rpm

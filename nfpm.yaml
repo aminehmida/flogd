@@ -1,0 +1,18 @@
+# nfpm packaging config — https://nfpm.goreleaser.com
+# Env vars (GOARCH, VERSION) are injected by the release/CI workflow.
+name: flogd
+arch: ${GOARCH}
+platform: linux
+version: ${VERSION}
+section: utils
+priority: optional
+maintainer: Amine Hmida <aminehmida@gmail.com>
+description: |
+  Follow a log or command output and run an action when a pattern
+  matches N times within a time window.
+vendor: Amine Hmida
+homepage: https://github.com/aminehmida/flogd
+license: MIT
+contents:
+  - src: ./flogd-linux-${GOARCH}
+    dst: /usr/bin/flogd
