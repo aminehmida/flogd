@@ -143,4 +143,4 @@ go build -o flogd .
 
 ## License
 
-See [LICENSE](LICENSE).
+[MIT](LICENSE) © Amine Hmida
