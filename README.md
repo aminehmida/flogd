@@ -19,14 +19,44 @@ A typical use: tail an auth log, and when the same IP fails to log in *N* times 
 
 ## Install
 
+### Prebuilt binary (recommended)
+
+Download the binary for your platform from the latest release. Prebuilt
+binaries are published for **Linux amd64/arm64** and **macOS arm64**:
+
+```sh
+# Pick the asset matching your OS/arch:
+#   flogd-linux-amd64   flogd-linux-arm64   flogd-darwin-arm64
+curl -fsSL -o flogd \
+  https://github.com/aminehmida/flogd/releases/latest/download/flogd-linux-amd64
+
+chmod +x flogd
+sudo mv flogd /usr/local/bin/
+```
+
+Not sure which asset you need? Detect it automatically:
+
+```sh
+os=$(uname -s | tr '[:upper:]' '[:lower:]')       # linux | darwin
+arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+curl -fsSL -o flogd \
+  "https://github.com/aminehmida/flogd/releases/latest/download/flogd-${os}-${arch}"
+chmod +x flogd && sudo mv flogd /usr/local/bin/
+```
+
+You can also download assets from the [Releases](../../releases) page directly.
+
+### With Go
+
 ```sh
 go install github.com/aminehmida/flogd@latest
 ```
 
-Or grab a prebuilt binary from the [Releases](../../releases) page
-(Linux amd64/arm64, macOS arm64), or build from source:
+### From source
 
 ```sh
+git clone https://github.com/aminehmida/flogd.git
+cd flogd
 go build -o flogd .
 ```
 
