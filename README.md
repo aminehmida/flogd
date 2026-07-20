@@ -46,6 +46,20 @@ chmod +x flogd && sudo mv flogd /usr/local/bin/
 
 You can also download assets from the [Releases](../../releases) page directly.
 
+### Debian/Ubuntu (.deb) and Fedora/RHEL (.rpm)
+
+Each release also ships `.deb` and `.rpm` packages for amd64 and arm64
+(they install the binary to `/usr/bin/flogd`). Grab the one for your arch
+from the [Releases](../../releases) page, then:
+
+```sh
+# Debian / Ubuntu
+sudo dpkg -i flogd_<version>_amd64.deb
+
+# Fedora / RHEL / openSUSE
+sudo rpm -i flogd_<version>_amd64.rpm
+```
+
 ### With Go
 
 ```sh
