@@ -1,0 +1,7 @@
+# Compiled binaries
+/flogd
+/flogd-*
+
+# Test binaries and coverage
+*.test
+*.out
