@@ -6,10 +6,6 @@ import (
 )
 
 func Execute(command string) (stdout, stderr string, retCode int, err error) {
-	// args, err := shellwords.Parse(command)
-	// if err != nil {
-	// 	return nil, nil, -1, err
-	// }
 	cmd := exec.Command("/bin/sh", "-c", command)
 	var out bytes.Buffer
 	var errOut bytes.Buffer
